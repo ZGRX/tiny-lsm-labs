@@ -1,6 +1,8 @@
 #include "skiplist/skiplist.h"
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <tuple>
@@ -62,12 +64,18 @@ int SkipList::random_level() {
   // ? - 确保层数分布为：第1层100%，第2层50%，第3层25%，以此类推
   // ? - 层数范围限制在[1, max_level]之间，避免浪费内存
   // TODO: Lab1.1 任务：插入时随机为这一次操作确定其最高连接的链表层数
+  int level = 1;
+  while(dis_01(gen) ==1 && level < max_level){
+    level++;
+  }
+  return level;
+
   return 0;
 }
 
 // 插入或更新键值对
 void SkipList::put(const std::string &key, const std::string &value,
-                   uint64_t tranc_id) {
+                   uint64_t tranc_id){
   spdlog::trace("SkipList--put({}, {}, {})", key, value, tranc_id);
 
   // TODO: Lab1.1 任务：实现插入或更新键值对
@@ -76,6 +84,53 @@ void SkipList::put(const std::string &key, const std::string &value,
   // ? tranc_id 为事务id, 直接将其传递到 SkipListNode 的构造函数中即可
   // ? 若key存在且tranc_id相同, 仅更新value; 否则插入新节点
   // ? 注意维护 size_bytes
+  // 1. 获取随机层级，如果超过了当前的最高层级，则更新当前的最高层级
+  int new_level = random_level();
+  if(new_level > current_level){
+    current_level = new_level;
+  }
+    // 2. 找到要插入的位置
+  // update数组用来存储每一层新节点应该插在哪个节点后面（即前驱节点）
+  std::vector<std::shared_ptr<SkipListNode>> update(current_level, head);
+  auto current= head;
+
+  for(int level = current_level - 1; level >= 0; level--){
+    while(current->forward_[level] != nullptr && current->forward_[level]->key_<key){
+      current = current ->forward_[level];
+    }
+    update[level] =current;
+  }
+  // 3. 检查底层的下一个节点，看是不是已经存在相同的 key
+  auto next_node = update[0]->forward_[0];
+  if(next_node != nullptr && next_node->key_ ==key){
+     // key 相同，还需要检查 tranc_id（事务ID）
+     if(next_node->tranc_id_ == tranc_id){
+      //减去旧 value 的长度，加上新 value 的长度
+      size_bytes = size_bytes - next_node->value_.
+      next_node->value_ = value;
+      return;
+     }
+         // 如果 tranc_id 不同，说明这是一个新版本，应该作为新节点插入（多版本并发控制）
+  }
+    auto new_node = std::make_shared<SkipListNode>(key, value, new_level, tranc_id);
+    // 5. 调整指针，将新节点插入到它需要存在的各个层级中
+  for (int level = 0; level < new_level; level++) {
+    // 新节点的下一个节点 = 前驱节点的下一个节点
+    new_node->forward_[level] = update[level]->forward_[level];
+    
+    // 前驱节点的下一个节点 = 新节点
+    update[level]->forward_[level] = new_node;
+    
+    // 跳表还需要维护后向指针 backward_
+    new_node->set_backward(level, update[level]);
+    
+    if (new_node->forward_[level] != nullptr) {
+      new_node->forward_[level]->set_backward(level, new_node);
+    }
+  }
+
+  // 6. 维护整体内存大小：增加新节点的大小
+  size_bytes += key.length() + value.length() + sizeof(uint64_t);
 }
 
 // 查找键值对
