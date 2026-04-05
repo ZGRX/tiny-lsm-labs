@@ -106,7 +106,7 @@ void SkipList::put(const std::string &key, const std::string &value,
      // key 相同，还需要检查 tranc_id（事务ID）
      if(next_node->tranc_id_ == tranc_id){
       //减去旧 value 的长度，加上新 value 的长度
-      size_bytes = size_bytes - next_node->value_.
+      size_bytes = size_bytes - next_node->value_.length();
       next_node->value_ = value;
       return;
      }
@@ -151,6 +151,7 @@ void SkipList::remove(const std::string &key) {
   // TODO: Lab1.1 任务：实现删除键值对
   // ? 从最高层开始查找目标节点并更新各层指针
   // ? 注意同时维护 backward_ 指针和 size_bytes
+  
 }
 
 // 刷盘时可以直接遍历最底层链表
