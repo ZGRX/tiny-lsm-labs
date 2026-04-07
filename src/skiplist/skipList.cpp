@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 namespace tiny_lsm {
 
@@ -136,22 +137,65 @@ void SkipList::put(const std::string &key, const std::string &value,
 // 查找键值对
 SkipListIterator SkipList::get(const std::string &key, uint64_t tranc_id) {
   spdlog::trace("SkipList--get({}) called", key);
-
   // TODO: Lab1.1 任务：实现查找键值对
   // ? 从最高层开始向下查找, 最终在底层确认 key 是否存在
   // ? 若 tranc_id == 0, 直接比较 key 返回; 否则需满足事务可见性 (tranc_id_ <= tranc_id)
   // TODO: 完成查找后还需要额外实现SkipListIterator中的TODO部分(Lab1.2)
+  std::vector<std::shared_ptr<SkipListNode>> update(current_level,head);
+  auto current = head;
+  //1.查找
+  for(int level = current-1; level >= 0; level--){
+    while(current ->forward_[level] !=nullptr && current ->forward_[level]->key_<key){
+      update[level] = current;
+    }
+  }
+  //2,检查
+  auto target = current->forward_[0];
+  //如果不存在,暂时还不会
+  //存在
+  if(tranc_id == 0 || target->tranc_id_ <= tranc_id){
+    return SkipListIterator(target);
+  }
+
   return SkipListIterator{};
 }
 
 // 删除键值对
 // ! 这里的 remove 是跳表本身真实的 remove,  lsm 应该使用 put 空值表示删除,
-// ! 这里只是为了实现完整的 SkipList 不会真正被上层调用
+// ! 这里只是为了实现完整的 SkipList 不会真正被上层调用1
 void SkipList::remove(const std::string &key) {
   // TODO: Lab1.1 任务：实现删除键值对
   // ? 从最高层开始查找目标节点并更新各层指针
   // ? 注意同时维护 backward_ 指针和 size_bytes
-  
+
+spdlog::trace("SkipList--remove({}) called", key);//写日记
+// 1. 从最高层开始，找到每一层中目标节点的前驱节点
+std::vector<std::shared_ptr<SkipListNode>> update(current_level,head);
+auto current = head;
+ 
+//从顶层到底层查找前驱
+for(int level = current_level - 1;level >= 0; level--){
+  while(current -> forward_[level] != nullptr && current ->forward_[level]->key_<key){
+    current = current ->forward_[level];
+  }
+  update[level] = current;
+}
+//检查底层的下一节点是不是要删除的
+auto target = update[0]->forward_[0];
+if (target == nullptr|| target->key_!=key) {
+  return;//没找到,直接返回
+}
+//3更新各层级指针,删除节点
+for (int level = 0; level < target->forward_.size();level++){
+  //前驱节点的 forward_ 指向目标节点的后继
+  update[level] ->forward_[level] = target->forward_[level];
+// 如果目标节点的后继不为空，更新其 backward_ 指针
+  if(target->forward_[level] != nullptr){
+  target->forward_[level]->set_backward(level, update[level]);
+  }
+}
+// 4. 更新内存大小：减少删除节点占用的内存
+ size_bytes -= target->key_.length() + target->value_.length() + sizeof(uint64_t);
 }
 
 // 刷盘时可以直接遍历最底层链表
