@@ -26,7 +26,7 @@ public:
   using reference = value_type &;
 
   virtual BaseIterator &operator++() = 0;
-  virtual bool operator==(const BaseIterator &other) const = 0;
+  virtual bool operator==(const BaseIterator &other) const = 0; 
   virtual bool operator!=(const BaseIterator &other) const = 0;
   virtual value_type operator*() const = 0;
   virtual IteratorType get_type() const = 0;
@@ -62,13 +62,13 @@ public:
   HeapIterator(bool skip_delete = true, bool keep_all_versions = false);
   HeapIterator(std::vector<SearchItem> item_vec, uint64_t max_tranc_id,
                bool skip_delete = true, bool keep_all_versions = false);
+
   pointer operator->() const;
   virtual value_type operator*() const override;
   BaseIterator &operator++() override;
   BaseIterator operator++(int) = delete;
   virtual bool operator==(const BaseIterator &other) const override;
   virtual bool operator!=(const BaseIterator &other) const override;
-
   virtual IteratorType get_type() const override;
   virtual uint64_t get_tranc_id() const override;
   virtual bool is_end() const override;

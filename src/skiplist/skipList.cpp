@@ -1,4 +1,6 @@
 #include "skiplist/skiplist.h"
+#include "iterator/iterator.h"
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -15,30 +17,41 @@ namespace tiny_lsm {
 BaseIterator &SkipListIterator::operator++() {
   // TODO: Lab1.2 任务：实现SkipListIterator的++操作符
   // ? current 是当前节点指针, forward_[0] 是最底层链表的下一个节点
+  if(current != nullptr) {
+     current = current->forward_[0];
+  }
   return *this;
 }
 
 bool SkipListIterator::operator==(const BaseIterator &other) const {
   // TODO: Lab1.2 任务：实现SkipListIterator的==操作符
   // ? 需要先通过 get_type() 判断类型再做 dynamic_cast
-  return false;
+  if (other.get_type() != IteratorType::SkipListIterator){
+    return false;
+  }
+  auto other_iter=dynamic_cast<const SkipListIterator&>(other);
+  return current == other_iter.current;
 }
 
 bool SkipListIterator::operator!=(const BaseIterator &other) const {
   // TODO: Lab1.2 任务：实现SkipListIterator的!=操作符
+  return !(*this == other);
   return true;
 }
 
 SkipListIterator::value_type SkipListIterator::operator*() const {
   // TODO: Lab1.2 任务：实现SkipListIterator的*操作符
   // ? 若 current 为空需抛出异常
-  return {"", ""};
+  if (current == nullptr) {
+    throw std::runtime_error("SkipListIterator: Cannot dereference null iterator");
+  }
+  return {current->key_, current->value_};
 }
 
 IteratorType SkipListIterator::get_type() const {
   // TODO: Lab1.2 任务：实现SkipListIterator的get_type
   // ? 主要是为了熟悉基类的定义和继承关系, 返回 IteratorType::SkipListIterator
-  return IteratorType::SkipListIterator; // placeholder, 请替换为正确实现
+  return IteratorType::SkipListIterator;
 }
 
 bool SkipListIterator::is_valid() const {
@@ -144,7 +157,7 @@ SkipListIterator SkipList::get(const std::string &key, uint64_t tranc_id) {
   std::vector<std::shared_ptr<SkipListNode>> update(current_level,head);
   auto current = head;
   //1.查找
-  for(int level = current-1; level >= 0; level--){
+  for(int level = current_level-1; level >= 0; level--){
     while(current ->forward_[level] !=nullptr && current ->forward_[level]->key_<key){
       update[level] = current;
     }
