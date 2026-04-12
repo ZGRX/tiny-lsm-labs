@@ -160,19 +160,19 @@ SkipListIterator SkipList::get(const std::string &key, uint64_t tranc_id) {
   for(int level = current_level-1; level >= 0; level--){
     while(current ->forward_[level] !=nullptr && current ->forward_[level]->key_<key){
       update[level] = current;
+      current = current->forward_[level];
     }
   }
   //2,检查
   auto target = current->forward_[0];
-  //如果不存在,暂时还不会
-  //存在
-  if(tranc_id == 0 || target->tranc_id_ <= tranc_id){
-    return SkipListIterator(target);
+  
+  if (target != nullptr && target->key_ == key) {
+    if(tranc_id == 0 || target->tranc_id_ <= tranc_id){
+      return SkipListIterator(target);
+    }
   }
-
   return SkipListIterator{};
 }
-
 // 删除键值对
 // ! 这里的 remove 是跳表本身真实的 remove,  lsm 应该使用 put 空值表示删除,
 // ! 这里只是为了实现完整的 SkipList 不会真正被上层调用1
